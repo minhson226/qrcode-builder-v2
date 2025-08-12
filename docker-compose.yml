@@ -1,0 +1,48 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: qrcode_saas
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+  cache:
+    image: redis:7
+    ports: ["6379:6379"]
+  storage:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports: ["9000:9000", "9001:9001"]
+    volumes: ["miniodata:/data"]
+  backend:
+    build: ./backend  # (sau này) hoặc image GHCR
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/qrcode_saas
+      REDIS_URL: redis://cache:6379/0
+      STORAGE_ENDPOINT: http://storage:9000
+      STORAGE_ACCESS_KEY: minioadmin
+      STORAGE_SECRET_KEY: minioadmin
+    depends_on: [db, cache, storage]
+    ports: ["8000:8000"]
+  worker:
+    build: ./backend
+    command: ["celery", "-A", "app.celery", "worker", "-l", "INFO"]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/qrcode_saas
+      REDIS_URL: redis://cache:6379/0
+      STORAGE_ENDPOINT: http://storage:9000
+      STORAGE_ACCESS_KEY: minioadmin
+      STORAGE_SECRET_KEY: minioadmin
+    depends_on: [db, cache, storage]
+  frontend:
+    build: ./frontend  # (sau này)
+    ports: ["3000:3000"]
+    depends_on: [backend]
+volumes:
+  pgdata: {}
+  miniodata: {}

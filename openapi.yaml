@@ -1,0 +1,306 @@
+openapi: 3.1.0
+info:
+  title: QRCode SaaS API
+  version: "1.0.0"
+servers:
+  - url: https://api.example.com
+paths:
+  /auth/signup:
+    post:
+      summary: Sign up
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /auth/login:
+    post:
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /qr:
+    get:
+      summary: List QR codes
+      parameters:
+        - in: query
+          name: folder
+          schema: { type: string }
+        - in: query
+          name: type
+          schema: { type: string, enum: [static, dynamic] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QrCode'
+    post:
+      summary: Create QR (static or dynamic)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QrCreateRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrCode'
+  /qr/{id}:
+    get:
+      summary: Get QR by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrCode'
+    patch:
+      summary: Update QR meta/design
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QrUpdateRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrCode'
+    delete:
+      summary: Delete QR
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: No Content
+  /qr/{id}/target:
+    put:
+      summary: Set dynamic target/password/expiry
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QrTargetUpdate'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrCode'
+  /qr/bulk:
+    post:
+      summary: Bulk create QR from CSV/XLSX
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+  /jobs/{id}:
+    get:
+      summary: Get job status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+  /analytics/qr/{id}/summary:
+    get:
+      summary: Analytics summary for a QR
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: range
+          schema: { type: string, example: 'last_30d' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsSummary'
+  /r/{code}:
+    get:
+      summary: Public redirect endpoint
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema: { type: string }
+      responses:
+        '302':
+          description: Found
+components:
+  schemas:
+    SignUpRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+    AuthResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        token_type: { type: string, example: Bearer }
+    QrCreateRequest:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [static, dynamic] }
+        content: { type: string, description: 'for static' }
+        target: { type: string, description: 'for dynamic' }
+        name: { type: string }
+        folder: { type: string }
+        design:
+          type: object
+          properties:
+            color: { type: string, example: '#000000' }
+            bgColor: { type: string, example: '#FFFFFF' }
+            logoUrl: { type: string }
+            frame: { type: string }
+        formats:
+          type: array
+          items: { type: string, enum: [png, svg, pdf] }
+    QrUpdateRequest:
+      type: object
+      properties:
+        name: { type: string }
+        folder: { type: string }
+        design:
+          type: object
+          properties:
+            color: { type: string }
+            bgColor: { type: string }
+            logoUrl: { type: string }
+            frame: { type: string }
+    QrTargetUpdate:
+      type: object
+      properties:
+        target: { type: string }
+        password: { type: string }
+        expiry_at: { type: string, format: date-time }
+        utm:
+          type: object
+          properties:
+            utm_source: { type: string }
+            utm_medium: { type: string }
+            utm_campaign: { type: string }
+    QrCode:
+      type: object
+      properties:
+        id: { type: string }
+        code: { type: string }
+        type: { type: string, enum: [static, dynamic] }
+        content: { type: string, nullable: true }
+        target: { type: string, nullable: true }
+        password_protected: { type: boolean }
+        expiry_at: { type: string, format: date-time, nullable: true }
+        download_urls:
+          type: object
+          additionalProperties:
+            type: string
+    JobStatus:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [queued, running, done, failed] }
+        result_url: { type: string, nullable: true }
+        error: { type: string, nullable: true }
+    AnalyticsSummary:
+      type: object
+      properties:
+        total_scans: { type: integer }
+        unique_scans: { type: integer }
+        by_day:
+          type: array
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              scans: { type: integer }
+        top_countries:
+          type: array
+          items:
+            type: object
+            properties:
+              country: { type: string }
+              scans: { type: integer }

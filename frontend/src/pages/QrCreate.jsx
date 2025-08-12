@@ -3,15 +3,72 @@ import React, { useState } from 'react'
 function QrCreate() {
   const [formData, setFormData] = useState({
     type: 'static',
+    contentType: 'url', // url, text, vcard, wifi, email, sms
     content: '',
     target: '',
     name: '',
     folder: '',
-    formats: ['png']
+    formats: ['png'],
+    // VCard fields
+    vcardData: {
+      firstName: '',
+      lastName: '',
+      organization: '',
+      phone: '',
+      email: '',
+      website: '',
+      address: ''
+    },
+    // WiFi fields
+    wifiData: {
+      ssid: '',
+      password: '',
+      security: 'WPA', // WPA, WEP, nopass
+      hidden: false
+    },
+    // Email fields
+    emailData: {
+      to: '',
+      subject: '',
+      body: ''
+    },
+    // SMS fields
+    smsData: {
+      phone: '',
+      message: ''
+    }
   })
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+
+  const generateContent = () => {
+    switch (formData.contentType) {
+      case 'vcard':
+        const vcard = `BEGIN:VCARD
+VERSION:3.0
+FN:${formData.vcardData.firstName} ${formData.vcardData.lastName}
+ORG:${formData.vcardData.organization}
+TEL:${formData.vcardData.phone}
+EMAIL:${formData.vcardData.email}
+URL:${formData.vcardData.website}
+ADR:;;;;${formData.vcardData.address};;;
+END:VCARD`
+        return vcard
+      
+      case 'wifi':
+        return `WIFI:T:${formData.wifiData.security};S:${formData.wifiData.ssid};P:${formData.wifiData.password};H:${formData.wifiData.hidden ? 'true' : 'false'};;`
+      
+      case 'email':
+        return `mailto:${formData.emailData.to}?subject=${encodeURIComponent(formData.emailData.subject)}&body=${encodeURIComponent(formData.emailData.body)}`
+      
+      case 'sms':
+        return `sms:${formData.smsData.phone}?body=${encodeURIComponent(formData.smsData.message)}`
+      
+      default:
+        return formData.content
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -27,12 +84,12 @@ function QrCreate() {
       }
 
       if (formData.type === 'static') {
-        payload.content = formData.content
+        payload.content = generateContent()
       } else {
         payload.target = formData.target
       }
 
-      const response = await fetch('/qr', {
+      const response = await fetch('/api/qr', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -50,11 +107,36 @@ function QrCreate() {
       // Reset form
       setFormData({
         type: 'static',
+        contentType: 'url',
         content: '',
         target: '',
         name: '',
         folder: '',
-        formats: ['png']
+        formats: ['png'],
+        vcardData: {
+          firstName: '',
+          lastName: '',
+          organization: '',
+          phone: '',
+          email: '',
+          website: '',
+          address: ''
+        },
+        wifiData: {
+          ssid: '',
+          password: '',
+          security: 'WPA',
+          hidden: false
+        },
+        emailData: {
+          to: '',
+          subject: '',
+          body: ''
+        },
+        smsData: {
+          phone: '',
+          message: ''
+        }
       })
       
     } catch (err) {
@@ -65,11 +147,23 @@ function QrCreate() {
   }
 
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    const { name, value, type, checked } = e.target
+    
+    if (name.includes('.')) {
+      const [parent, child] = name.split('.')
+      setFormData(prev => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent],
+          [child]: type === 'checkbox' ? checked : value
+        }
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }))
+    }
   }
 
   const handleFormatChange = (format) => {
@@ -80,189 +174,407 @@ function QrCreate() {
       
       return {
         ...prev,
-        formats: formats.length > 0 ? formats : ['png'] // Always keep at least one format
+        formats: formats.length > 0 ? formats : ['png']
       }
     })
   }
 
-  return (
-    <div>
-      <h1>Create QR Code</h1>
+  const renderContentFields = () => {
+    if (formData.type === 'dynamic') {
+      return (
+        <div className="form-group">
+          <label className="form-label">Target URL:</label>
+          <input
+            type="url"
+            name="target"
+            value={formData.target}
+            onChange={handleChange}
+            placeholder="https://example.com"
+            required
+            className="form-input"
+          />
+        </div>
+      )
+    }
+
+    switch (formData.contentType) {
+      case 'url':
+        return (
+          <div className="form-group">
+            <label className="form-label">URL:</label>
+            <input
+              type="url"
+              name="content"
+              value={formData.content}
+              onChange={handleChange}
+              placeholder="https://example.com"
+              required
+              className="form-input"
+            />
+          </div>
+        )
       
-      <form onSubmit={handleSubmit} style={{ maxWidth: '500px' }}>
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>
-            Type:
-          </label>
-          <select 
-            name="type" 
-            value={formData.type} 
-            onChange={handleChange}
-            style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-          >
-            <option value="static">Static</option>
-            <option value="dynamic">Dynamic</option>
-          </select>
-        </div>
-
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>
-            Name (optional):
-          </label>
-          <input
-            type="text"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            placeholder="Enter QR code name"
-            style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>
-            Folder (optional):
-          </label>
-          <input
-            type="text"
-            name="folder"
-            value={formData.folder}
-            onChange={handleChange}
-            placeholder="Enter folder name"
-            style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-          />
-        </div>
-
-        {formData.type === 'static' ? (
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>
-              Content:
-            </label>
+      case 'text':
+        return (
+          <div className="form-group">
+            <label className="form-label">Nội dung văn bản:</label>
             <textarea
               name="content"
               value={formData.content}
               onChange={handleChange}
-              placeholder="Enter the content to encode (URL, text, etc.)"
+              placeholder="Nhập nội dung văn bản"
               required
-              rows={3}
-              style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+              className="form-textarea"
             />
           </div>
-        ) : (
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>
-              Target URL:
-            </label>
-            <input
-              type="url"
-              name="target"
-              value={formData.target}
-              onChange={handleChange}
-              placeholder="Enter the target URL"
-              required
-              style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-            />
+        )
+      
+      case 'vcard':
+        return (
+          <div className="grid grid-2">
+            <div className="form-group">
+              <label className="form-label">Họ:</label>
+              <input
+                type="text"
+                name="vcardData.firstName"
+                value={formData.vcardData.firstName}
+                onChange={handleChange}
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Tên:</label>
+              <input
+                type="text"
+                name="vcardData.lastName"
+                value={formData.vcardData.lastName}
+                onChange={handleChange}
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Công ty:</label>
+              <input
+                type="text"
+                name="vcardData.organization"
+                value={formData.vcardData.organization}
+                onChange={handleChange}
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Điện thoại:</label>
+              <input
+                type="tel"
+                name="vcardData.phone"
+                value={formData.vcardData.phone}
+                onChange={handleChange}
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email:</label>
+              <input
+                type="email"
+                name="vcardData.email"
+                value={formData.vcardData.email}
+                onChange={handleChange}
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Website:</label>
+              <input
+                type="url"
+                name="vcardData.website"
+                value={formData.vcardData.website}
+                onChange={handleChange}
+                className="form-input"
+              />
+            </div>
+            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <label className="form-label">Địa chỉ:</label>
+              <input
+                type="text"
+                name="vcardData.address"
+                value={formData.vcardData.address}
+                onChange={handleChange}
+                className="form-input"
+              />
+            </div>
+          </div>
+        )
+      
+      case 'wifi':
+        return (
+          <div className="grid grid-2">
+            <div className="form-group">
+              <label className="form-label">Tên WiFi (SSID):</label>
+              <input
+                type="text"
+                name="wifiData.ssid"
+                value={formData.wifiData.ssid}
+                onChange={handleChange}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Mật khẩu:</label>
+              <input
+                type="password"
+                name="wifiData.password"
+                value={formData.wifiData.password}
+                onChange={handleChange}
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Bảo mật:</label>
+              <select
+                name="wifiData.security"
+                value={formData.wifiData.security}
+                onChange={handleChange}
+                className="form-select"
+              >
+                <option value="WPA">WPA/WPA2</option>
+                <option value="WEP">WEP</option>
+                <option value="nopass">Không mật khẩu</option>
+              </select>
+            </div>
+            <div className="form-group flex items-center">
+              <input
+                type="checkbox"
+                name="wifiData.hidden"
+                checked={formData.wifiData.hidden}
+                onChange={handleChange}
+                id="hidden-wifi"
+              />
+              <label htmlFor="hidden-wifi" className="ml-2">WiFi ẩn</label>
+            </div>
+          </div>
+        )
+      
+      case 'email':
+        return (
+          <div>
+            <div className="form-group">
+              <label className="form-label">Email người nhận:</label>
+              <input
+                type="email"
+                name="emailData.to"
+                value={formData.emailData.to}
+                onChange={handleChange}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Tiêu đề:</label>
+              <input
+                type="text"
+                name="emailData.subject"
+                value={formData.emailData.subject}
+                onChange={handleChange}
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Nội dung:</label>
+              <textarea
+                name="emailData.body"
+                value={formData.emailData.body}
+                onChange={handleChange}
+                className="form-textarea"
+              />
+            </div>
+          </div>
+        )
+      
+      case 'sms':
+        return (
+          <div>
+            <div className="form-group">
+              <label className="form-label">Số điện thoại:</label>
+              <input
+                type="tel"
+                name="smsData.phone"
+                value={formData.smsData.phone}
+                onChange={handleChange}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Tin nhắn:</label>
+              <textarea
+                name="smsData.message"
+                value={formData.smsData.message}
+                onChange={handleChange}
+                className="form-textarea"
+              />
+            </div>
+          </div>
+        )
+      
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="card">
+        <h1 className="text-2xl font-bold mb-4">🚀 Tạo QR Code mới</h1>
+        
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-2 gap-4">
+            {/* Left Column */}
+            <div>
+              <div className="form-group">
+                <label className="form-label">Loại QR:</label>
+                <select 
+                  name="type" 
+                  value={formData.type} 
+                  onChange={handleChange}
+                  className="form-select"
+                >
+                  <option value="static">QR Tĩnh (Static)</option>
+                  <option value="dynamic">QR Động (Dynamic)</option>
+                </select>
+              </div>
+
+              {formData.type === 'static' && (
+                <div className="form-group">
+                  <label className="form-label">Loại nội dung:</label>
+                  <select 
+                    name="contentType" 
+                    value={formData.contentType} 
+                    onChange={handleChange}
+                    className="form-select"
+                  >
+                    <option value="url">🔗 Website URL</option>
+                    <option value="text">📝 Văn bản</option>
+                    <option value="vcard">👤 Danh thiếp (vCard)</option>
+                    <option value="wifi">📶 WiFi</option>
+                    <option value="email">📧 Email</option>
+                    <option value="sms">💬 SMS</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label className="form-label">Tên QR (tùy chọn):</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Đặt tên cho QR code"
+                  className="form-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Thư mục (tùy chọn):</label>
+                <input
+                  type="text"
+                  name="folder"
+                  value={formData.folder}
+                  onChange={handleChange}
+                  placeholder="Nhóm QR theo thư mục"
+                  className="form-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Định dạng xuất:</label>
+                <div className="checkbox-group">
+                  {['png', 'svg'].map(format => (
+                    <div key={format} className="checkbox-item">
+                      <input
+                        type="checkbox"
+                        checked={formData.formats.includes(format)}
+                        onChange={() => handleFormatChange(format)}
+                        id={format}
+                      />
+                      <label htmlFor={format}>{format.toUpperCase()}</label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column */}
+            <div>
+              {renderContentFields()}
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-4">
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="btn btn-primary"
+            >
+              {loading ? (
+                <>
+                  <div className="spinner mr-2" style={{ width: '16px', height: '16px' }}></div>
+                  Đang tạo...
+                </>
+              ) : (
+                '🎯 Tạo QR Code'
+              )}
+            </button>
+            
+            <button 
+              type="button"
+              onClick={() => window.location.reload()}
+              className="btn btn-outline"
+            >
+              🔄 Làm mới
+            </button>
+          </div>
+        </form>
+
+        {error && (
+          <div className="alert alert-error">
+            ❌ Lỗi: {error}
           </div>
         )}
 
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>
-            Formats:
-          </label>
-          <div>
-            {['png', 'svg'].map(format => (
-              <label key={format} style={{ marginRight: '15px', display: 'inline-block' }}>
-                <input
-                  type="checkbox"
-                  checked={formData.formats.includes(format)}
-                  onChange={() => handleFormatChange(format)}
-                  style={{ marginRight: '5px' }}
-                />
-                {format.toUpperCase()}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <button 
-          type="submit" 
-          disabled={loading}
-          style={{ 
-            padding: '10px 20px', 
-            backgroundColor: loading ? '#ccc' : '#007bff', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '4px',
-            cursor: loading ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {loading ? 'Creating...' : 'Create QR Code'}
-        </button>
-      </form>
-
-      {error && (
-        <div style={{ 
-          marginTop: '20px', 
-          padding: '10px', 
-          backgroundColor: '#f8d7da', 
-          border: '1px solid #f5c6cb', 
-          borderRadius: '4px',
-          color: '#721c24'
-        }}>
-          Error: {error}
-        </div>
-      )}
-
-      {result && (
-        <div style={{ 
-          marginTop: '20px', 
-          padding: '15px', 
-          backgroundColor: '#d4edda', 
-          border: '1px solid #c3e6cb', 
-          borderRadius: '4px'
-        }}>
-          <h3>QR Code Created Successfully!</h3>
-          <p><strong>Code:</strong> {result.code}</p>
-          <p><strong>Type:</strong> {result.type}</p>
-          
-          <div style={{ marginTop: '10px' }}>
-            {result.download_urls?.png && (
-              <a 
-                href={result.download_urls.png} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                style={{ 
-                  marginRight: '10px', 
-                  padding: '5px 10px', 
-                  backgroundColor: '#007bff', 
-                  color: 'white', 
-                  textDecoration: 'none', 
-                  borderRadius: '3px'
-                }}
-              >
-                Download PNG
-              </a>
-            )}
+        {result && (
+          <div className="alert alert-success">
+            <h3>✅ QR Code tạo thành công!</h3>
+            <p><strong>Mã:</strong> {result.code}</p>
+            <p><strong>Loại:</strong> {result.type}</p>
             
-            {result.download_urls?.svg && (
-              <a 
-                href={result.download_urls.svg} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                style={{ 
-                  padding: '5px 10px', 
-                  backgroundColor: '#28a745', 
-                  color: 'white', 
-                  textDecoration: 'none', 
-                  borderRadius: '3px'
-                }}
-              >
-                Download SVG
-              </a>
-            )}
+            <div className="flex gap-2 mt-3">
+              {result.download_urls?.png && (
+                <a 
+                  href={result.download_urls.png} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn btn-primary"
+                >
+                  📥 Tải PNG
+                </a>
+              )}
+              
+              {result.download_urls?.svg && (
+                <a 
+                  href={result.download_urls.svg} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn btn-success"
+                >
+                  📥 Tải SVG
+                </a>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

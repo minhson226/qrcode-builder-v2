@@ -7,9 +7,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/qr': 'http://localhost:8000',
-      '/r': 'http://localhost:8000',
-      '/analytics': 'http://localhost:8000'
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
     }
   },
   test: {

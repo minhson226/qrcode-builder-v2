@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Request, Form, UploadFile, 
 from fastapi.responses import RedirectResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import os
@@ -12,13 +13,15 @@ from app.schemas import (
     QRCreateRequest, QRUpdateRequest, QRTargetUpdate, 
     QRCodeResponse, JobStatus, AnalyticsSummary,
     LandingPageCreateRequest, LandingPageUpdateRequest, LandingPageResponse,
-    LeadCreateRequest, LeadResponse
+    LeadCreateRequest, LeadResponse,
+    UserSignUpRequest, UserLoginRequest, UserResponse, AuthResponse, TokenRefreshRequest
 )
 from app.services.qrcode import QRCodeService
 from app.services.redirect import RedirectService
 from app.services.bulk import BulkService
 from app.services.analytics import AnalyticsService
 from app.services.landing import LandingPageService
+from app.services.auth import AuthService, verify_token, create_access_token, create_refresh_token
 from app.config import settings
 
 app = FastAPI(title="QRCode SaaS API", version="1.0.0")
@@ -35,6 +38,89 @@ app.add_middleware(
 # Static files for uploads
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
+
+# Security
+security = HTTPBearer(auto_error=False)
+
+# Authentication dependency
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Optional[dict]:
+    """Get current authenticated user"""
+    if not credentials:
+        return None
+    
+    token_data = verify_token(credentials.credentials, "access")
+    if not token_data:
+        return None
+    
+    auth_service = AuthService()
+    user = auth_service.get_user_by_id(token_data.get("sub"))
+    return user
+
+# Auth endpoints
+@app.post("/auth/signup", response_model=AuthResponse, status_code=201)
+async def signup(user_data: UserSignUpRequest):
+    auth_service = AuthService()
+    
+    try:
+        user = auth_service.create_user(user_data.email, user_data.password, user_data.name)
+        
+        # Create tokens
+        access_token = create_access_token(data={"sub": user["id"], "email": user["email"]})
+        refresh_token = create_refresh_token(data={"sub": user["id"], "email": user["email"]})
+        
+        return AuthResponse(
+            user=UserResponse(**user),
+            access_token=access_token,
+            refresh_token=refresh_token
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/auth/login", response_model=AuthResponse)
+async def login(user_data: UserLoginRequest):
+    auth_service = AuthService()
+    
+    user = auth_service.authenticate_user(user_data.email, user_data.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    # Create tokens
+    access_token = create_access_token(data={"sub": user["id"], "email": user["email"]})
+    refresh_token = create_refresh_token(data={"sub": user["id"], "email": user["email"]})
+    
+    return AuthResponse(
+        user=UserResponse(**user),
+        access_token=access_token,
+        refresh_token=refresh_token
+    )
+
+@app.post("/auth/refresh", response_model=AuthResponse)
+async def refresh_token(token_data: TokenRefreshRequest):
+    payload = verify_token(token_data.refresh_token, "refresh")
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+    
+    auth_service = AuthService()
+    user = auth_service.get_user_by_id(payload.get("sub"))
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    
+    # Create new tokens
+    access_token = create_access_token(data={"sub": user["id"], "email": user["email"]})
+    refresh_token = create_refresh_token(data={"sub": user["id"], "email": user["email"]})
+    
+    return AuthResponse(
+        user=UserResponse(**user),
+        access_token=access_token,
+        refresh_token=refresh_token
+    )
+
+@app.get("/auth/me", response_model=UserResponse)
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    return UserResponse(**current_user)
 
 # QR Code endpoints
 @app.get("/qr", response_model=List[QRCodeResponse])

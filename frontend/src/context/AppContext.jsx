@@ -120,14 +120,27 @@ export function AppProvider({ children }) {
         // Check for stored auth token
         const token = localStorage.getItem('qr-builder-token')
         if (token) {
-          // In a real app, validate token with server
-          // For now, just simulate a user
-          const user = { 
-            id: '1', 
-            email: 'demo@example.com', 
-            name: 'Demo User' 
+          try {
+            // Verify token with server
+            const response = await fetch('/api/auth/me', {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            })
+            
+            if (response.ok) {
+              const user = await response.json()
+              dispatch({ type: actionTypes.SET_USER, payload: user })
+            } else {
+              // Token is invalid, remove it
+              localStorage.removeItem('qr-builder-token')
+              localStorage.removeItem('qr-builder-refresh-token')
+            }
+          } catch (error) {
+            console.error('Token validation error:', error)
+            localStorage.removeItem('qr-builder-token')
+            localStorage.removeItem('qr-builder-refresh-token')
           }
-          dispatch({ type: actionTypes.SET_USER, payload: user })
         }
       } catch (error) {
         console.error('App initialization error:', error)
@@ -148,25 +161,34 @@ export function AppProvider({ children }) {
     login: async (credentials) => {
       dispatch({ type: actionTypes.SET_LOADING, payload: true })
       try {
-        // In a real app, make API call to authenticate
-        // For now, simulate successful login
-        const user = { 
-          id: '1', 
-          email: credentials.email, 
-          name: 'Demo User' 
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(credentials)
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.detail || 'Login failed')
         }
-        const token = 'demo-jwt-token'
+
+        const data = await response.json()
         
-        localStorage.setItem('qr-builder-token', token)
-        dispatch({ type: actionTypes.SET_USER, payload: user })
+        // Store tokens
+        localStorage.setItem('qr-builder-token', data.access_token)
+        localStorage.setItem('qr-builder-refresh-token', data.refresh_token)
+        
+        dispatch({ type: actionTypes.SET_USER, payload: data.user })
         
         actions.addNotification({
           type: 'success',
           title: 'Đăng nhập thành công',
-          message: `Chào mừng ${user.name}!`
+          message: `Chào mừng ${data.user.name}!`
         })
         
-        return { success: true, user }
+        return { success: true, user: data.user }
       } catch (error) {
         actions.addNotification({
           type: 'error',
@@ -181,6 +203,7 @@ export function AppProvider({ children }) {
 
     logout: () => {
       localStorage.removeItem('qr-builder-token')
+      localStorage.removeItem('qr-builder-refresh-token')
       dispatch({ type: actionTypes.LOGOUT })
       actions.addNotification({
         type: 'info',

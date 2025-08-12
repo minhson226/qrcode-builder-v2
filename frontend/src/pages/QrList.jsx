@@ -251,6 +251,17 @@ function QrList() {
                   </a>
                 )}
                 
+                {qr.download_urls?.pdf && (
+                  <a 
+                    href={qr.download_urls.pdf} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="btn btn-danger"
+                  >
+                    📄 PDF
+                  </a>
+                )}
+                
                 {qr.type === 'dynamic' && (
                   <button className="btn btn-outline">
                     📊 Thống kê

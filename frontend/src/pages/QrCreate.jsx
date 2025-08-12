@@ -490,7 +490,7 @@ END:VCARD`
               <div className="form-group">
                 <label className="form-label">Định dạng xuất:</label>
                 <div className="checkbox-group">
-                  {['png', 'svg'].map(format => (
+                  {['png', 'svg', 'pdf'].map(format => (
                     <div key={format} className="checkbox-item">
                       <input
                         type="checkbox"
@@ -569,6 +569,17 @@ END:VCARD`
                   className="btn btn-success"
                 >
                   📥 Tải SVG
+                </a>
+              )}
+              
+              {result.download_urls?.pdf && (
+                <a 
+                  href={result.download_urls.pdf} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn btn-danger"
+                >
+                  📄 Tải PDF
                 </a>
               )}
             </div>

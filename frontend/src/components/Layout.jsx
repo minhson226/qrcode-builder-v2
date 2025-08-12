@@ -13,6 +13,7 @@ function Layout({ children }) {
             <Link to="/">Trang chủ</Link>
             <Link to="/create">Tạo QR</Link>
             <Link to="/qr">Quản lý QR</Link>
+            <Link to="/landing-pages">Landing Pages</Link>
           </div>
         </div>
       </nav>

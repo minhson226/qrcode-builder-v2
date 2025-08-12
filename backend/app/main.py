@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Request, Form, UploadFile, File
-from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.responses import RedirectResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -10,12 +10,15 @@ from app.deps import get_db
 from app.repo import QRCodeRepository
 from app.schemas import (
     QRCreateRequest, QRUpdateRequest, QRTargetUpdate, 
-    QRCodeResponse, JobStatus, AnalyticsSummary
+    QRCodeResponse, JobStatus, AnalyticsSummary,
+    LandingPageCreateRequest, LandingPageUpdateRequest, LandingPageResponse,
+    LeadCreateRequest, LeadResponse
 )
 from app.services.qrcode import QRCodeService
 from app.services.redirect import RedirectService
 from app.services.bulk import BulkService
 from app.services.analytics import AnalyticsService
+from app.services.landing import LandingPageService
 from app.config import settings
 
 app = FastAPI(title="QRCode SaaS API", version="1.0.0")
@@ -249,6 +252,96 @@ async def redirect_qr(
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+# Landing Page endpoints
+@app.post("/landing-pages", response_model=LandingPageResponse, status_code=201)
+async def create_landing_page(
+    data: LandingPageCreateRequest,
+    db: Session = Depends(get_db)
+):
+    landing_service = LandingPageService(db)
+    
+    # Check if slug already exists
+    existing = landing_service.get_landing_page_by_slug(data.slug)
+    if existing:
+        raise HTTPException(status_code=400, detail="Slug already exists")
+    
+    landing_page = landing_service.create_landing_page(data)
+    return LandingPageResponse.model_validate(landing_page.__dict__)
+
+@app.get("/landing-pages", response_model=List[LandingPageResponse])
+async def list_landing_pages(
+    qr_id: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    landing_service = LandingPageService(db)
+    pages = landing_service.list_landing_pages(qr_id=qr_id)
+    return [LandingPageResponse.model_validate(page.__dict__) for page in pages]
+
+@app.get("/landing-pages/{page_id}", response_model=LandingPageResponse)
+async def get_landing_page(page_id: str, db: Session = Depends(get_db)):
+    landing_service = LandingPageService(db)
+    page = landing_service.get_landing_page_by_id(page_id)
+    
+    if not page:
+        raise HTTPException(status_code=404, detail="Landing page not found")
+    
+    return LandingPageResponse.model_validate(page.__dict__)
+
+@app.put("/landing-pages/{page_id}", response_model=LandingPageResponse)
+async def update_landing_page(
+    page_id: str,
+    data: LandingPageUpdateRequest,
+    db: Session = Depends(get_db)
+):
+    landing_service = LandingPageService(db)
+    page = landing_service.update_landing_page(page_id, data)
+    
+    if not page:
+        raise HTTPException(status_code=404, detail="Landing page not found")
+    
+    return LandingPageResponse.model_validate(page.__dict__)
+
+@app.delete("/landing-pages/{page_id}", status_code=204)
+async def delete_landing_page(page_id: str, db: Session = Depends(get_db)):
+    landing_service = LandingPageService(db)
+    success = landing_service.delete_landing_page(page_id)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="Landing page not found")
+
+@app.get("/l/{slug}", response_class=HTMLResponse)
+async def view_landing_page(slug: str, db: Session = Depends(get_db)):
+    """Serve the landing page by slug"""
+    landing_service = LandingPageService(db)
+    page = landing_service.get_landing_page_by_slug(slug)
+    
+    if not page or not page.is_published:
+        raise HTTPException(status_code=404, detail="Landing page not found")
+    
+    html_content = landing_service.render_landing_page(page)
+    return HTMLResponse(content=html_content)
+
+@app.post("/leads", response_model=LeadResponse, status_code=201)
+async def create_lead(
+    data: LeadCreateRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    landing_service = LandingPageService(db)
+    
+    # Get client IP and user agent
+    client_ip = request.client.host
+    user_agent = request.headers.get("user-agent", "")
+    
+    lead = landing_service.create_lead(data, client_ip, user_agent)
+    return LeadResponse.model_validate(lead.__dict__)
+
+@app.get("/landing-pages/{page_id}/leads", response_model=List[LeadResponse])
+async def get_landing_page_leads(page_id: str, db: Session = Depends(get_db)):
+    landing_service = LandingPageService(db)
+    leads = landing_service.get_leads_for_page(page_id)
+    return [LeadResponse.model_validate(lead.__dict__) for lead in leads]
 
 if __name__ == "__main__":
     import uvicorn

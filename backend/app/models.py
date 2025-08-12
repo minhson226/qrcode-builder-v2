@@ -24,6 +24,48 @@ class QRCode(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class LandingPage(Base):
+    __tablename__ = "landing_pages"
+    
+    id = Column(String, primary_key=True)
+    qr_id = Column(String, index=True)  # Associated QR code
+    slug = Column(String, unique=True, index=True)  # URL-friendly identifier
+    title = Column(String)
+    description = Column(Text, nullable=True)
+    
+    # Page content as JSON
+    content = Column(JSON, default={})  # Structured content
+    
+    # Design settings
+    theme = Column(String, default="default")  # Theme name
+    custom_css = Column(Text, nullable=True)
+    
+    # SEO settings
+    meta_title = Column(String, nullable=True)
+    meta_description = Column(String, nullable=True)
+    
+    # Settings
+    is_published = Column(Boolean, default=True)
+    collect_leads = Column(Boolean, default=False)
+    analytics_enabled = Column(Boolean, default=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class Lead(Base):
+    __tablename__ = "leads"
+    
+    id = Column(String, primary_key=True)
+    landing_page_id = Column(String, index=True)
+    name = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    message = Column(Text, nullable=True)
+    data = Column(JSON, default={})  # Additional form data
+    ip_hash = Column(String)
+    user_agent = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class Scan(Base):
     __tablename__ = "scans"
     

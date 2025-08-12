@@ -46,6 +46,7 @@ python-jose==3.3.0
 python-multipart==0.0.6
 PyYAML==6.0.2
 qrcode==7.4.2
+reportlab==4.0.8
 requests==2.32.4
 rsa==4.9.1
 six==1.17.0

@@ -41,7 +41,7 @@ services:
     depends_on: [db, cache, storage]
   frontend:
     build: ./frontend  # (sau này)
-    ports: ["3000:3000"]
+    ports: ["5173:5173"]
     depends_on: [backend]
 volumes:
   pgdata: {}

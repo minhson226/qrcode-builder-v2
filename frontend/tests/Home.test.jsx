@@ -11,7 +11,7 @@ describe('Home', () => {
       </BrowserRouter>
     )
     
-    expect(screen.getByText('Welcome to the powerful QRCode SaaS platform for creating and managing QR codes')).toBeInTheDocument()
+    expect(screen.getByText('Nền tảng tạo và quản lý QR code chuyên nghiệp cho doanh nghiệp')).toBeInTheDocument()
   })
   
   it('renders main heading', () => {
@@ -21,7 +21,7 @@ describe('Home', () => {
       </BrowserRouter>
     )
     
-    expect(screen.getByText('QRCode Builder')).toBeInTheDocument()
+    expect(screen.getByText('QR Code Builder Pro')).toBeInTheDocument()
   })
   
   it('renders features list', () => {
@@ -31,9 +31,9 @@ describe('Home', () => {
       </BrowserRouter>
     )
     
-    expect(screen.getByText('Create static and dynamic QR codes')).toBeInTheDocument()
-    expect(screen.getByText('Analytics and tracking')).toBeInTheDocument()
-    expect(screen.getByText('Bulk QR code generation')).toBeInTheDocument()
+    expect(screen.getByText('QR Code Động')).toBeInTheDocument()
+    expect(screen.getByText('Thống kê chi tiết')).toBeInTheDocument()
+    expect(screen.getByText('Tạo hàng loạt')).toBeInTheDocument()
   })
   
   it('renders action buttons', () => {
@@ -43,7 +43,7 @@ describe('Home', () => {
       </BrowserRouter>
     )
     
-    expect(screen.getByText('Create QR Code')).toBeInTheDocument()
-    expect(screen.getByText('View QR Codes')).toBeInTheDocument()
+    expect(screen.getByText('🚀 Tạo QR ngay')).toBeInTheDocument()
+    expect(screen.getByText('📊 Xem thống kê')).toBeInTheDocument()
   })
 })

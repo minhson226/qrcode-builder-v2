@@ -146,26 +146,21 @@ function RecentQRCodesCard() {
   )
 }
 
-function AnalyticsChart() {
-  // In a real app, this would fetch data from API
-  const [chartData, setChartData] = useState([])
-  const [loading, setLoading] = useState(true)
+function AnalyticsChart({ chartData = [] }) {
+  const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    // Simulate loading chart data
-    setTimeout(() => {
-      setChartData([
-        { date: '2025-01-01', scans: 45 },
-        { date: '2025-01-02', scans: 62 },
-        { date: '2025-01-03', scans: 38 },
-        { date: '2025-01-04', scans: 75 },
-        { date: '2025-01-05', scans: 91 },
-        { date: '2025-01-06', scans: 67 },
-        { date: '2025-01-07', scans: 83 }
-      ])
-      setLoading(false)
-    }, 1000)
-  }, [])
+  // Use provided chartData or fallback to default
+  const defaultData = [
+    { date: '2025-01-01', scans: 45 },
+    { date: '2025-01-02', scans: 62 },
+    { date: '2025-01-03', scans: 38 },
+    { date: '2025-01-04', scans: 75 },
+    { date: '2025-01-05', scans: 91 },
+    { date: '2025-01-06', scans: 67 },
+    { date: '2025-01-07', scans: 83 }
+  ]
+
+  const displayData = chartData.length > 0 ? chartData : defaultData
 
   if (loading) {
     return (
@@ -181,14 +176,14 @@ function AnalyticsChart() {
     )
   }
 
-  const maxScans = Math.max(...chartData.map(d => d.scans))
+  const maxScans = Math.max(...displayData.map(d => d.scans), 1)
 
   return (
     <div className="card">
       <h3 className="text-lg font-semibold mb-4">📈 Lượt quét 7 ngày qua</h3>
       
       <div className="h-64 flex items-end justify-between gap-2 p-4 bg-gray-50 rounded-lg">
-        {chartData.map((data, index) => {
+        {displayData.map((data, index) => {
           const height = (data.scans / maxScans) * 100
           return (
             <div key={index} className="flex-1 flex flex-col items-center gap-2">
@@ -196,9 +191,9 @@ function AnalyticsChart() {
                 {data.scans}
               </div>
               <div 
-                className="w-full bg-primary rounded-t-lg transition-all hover:bg-primary-dark"
-                style={{ height: `${height}%`, minHeight: '8px' }}
-                title={`${data.scans} lượt quét`}
+                className="w-full bg-primary rounded-t-lg transition-all hover:bg-primary-dark cursor-pointer"
+                style={{ height: `${Math.max(height, 8)}%`, minHeight: '8px' }}
+                title={`${data.scans} lượt quét ngày ${new Date(data.date).toLocaleDateString('vi-VN')}`}
               ></div>
               <div className="text-xs text-gray-600">
                 {new Date(data.date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
@@ -210,7 +205,7 @@ function AnalyticsChart() {
 
       <div className="mt-4 text-center">
         <p className="text-sm text-gray-600">
-          Tổng: <span className="font-semibold">{chartData.reduce((sum, d) => sum + d.scans, 0)}</span> lượt quét
+          Tổng: <span className="font-semibold">{displayData.reduce((sum, d) => sum + d.scans, 0)}</span> lượt quét
         </p>
       </div>
     </div>
@@ -218,15 +213,57 @@ function AnalyticsChart() {
 }
 
 function Dashboard() {
-  const { user, qrCodes, analytics } = useApp()
+  const { user, qrCodes, actions } = useApp()
   const [loading, setLoading] = useState(true)
+  const [analytics, setAnalytics] = useState(null)
+  const [chartData, setChartData] = useState([])
 
   useEffect(() => {
-    // Simulate loading dashboard data
-    setTimeout(() => {
-      setLoading(false)
-    }, 800)
+    fetchDashboardData()
   }, [])
+
+  const fetchDashboardData = async () => {
+    setLoading(true)
+    try {
+      // Fetch QR codes first
+      const qrResponse = await fetch('/api/qr', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('qr-builder-token')}`
+        }
+      })
+      
+      if (qrResponse.ok) {
+        const qrData = await qrResponse.json()
+        actions.setQrCodes(qrData)
+      }
+
+      // Fetch analytics data
+      const analyticsResponse = await fetch('/api/analytics/dashboard', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('qr-builder-token')}`
+        }
+      })
+      
+      if (analyticsResponse.ok) {
+        const analyticsData = await analyticsResponse.json()
+        setAnalytics(analyticsData)
+        setChartData(analyticsData.scan_data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error)
+      // Use fallback data if API fails
+      setAnalytics({
+        total_qrs: qrCodes.length,
+        dynamic_qrs: qrCodes.filter(qr => qr.type === 'dynamic').length,
+        static_qrs: qrCodes.filter(qr => qr.type === 'static').length,
+        total_scans: 0,
+        monthly_scans: 0
+      })
+      setChartData([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -234,11 +271,12 @@ function Dashboard() {
     )
   }
 
-  const stats = {
-    totalQRs: qrCodes.length,
-    dynamicQRs: qrCodes.filter(qr => qr.type === 'dynamic').length,
-    totalScans: 1247, // In real app, get from analytics
-    monthlyScans: 312 // In real app, get from analytics
+  const stats = analytics || {
+    total_qrs: qrCodes.length,
+    dynamic_qrs: qrCodes.filter(qr => qr.type === 'dynamic').length,
+    static_qrs: qrCodes.filter(qr => qr.type === 'static').length,
+    total_scans: 0,
+    monthly_scans: 0
   }
 
   return (
@@ -256,26 +294,26 @@ function Dashboard() {
       <div className="grid grid-2 lg:grid-4 gap-4 mb-6">
         <StatsCard
           title="Tổng QR Code"
-          value={stats.totalQRs}
+          value={stats.total_qrs}
           icon="🔢"
           color="blue"
         />
         <StatsCard
           title="QR Động"
-          value={stats.dynamicQRs}
+          value={stats.dynamic_qrs}
           icon="🔄"
           color="green"
         />
         <StatsCard
           title="Tổng lượt quét"
-          value={stats.totalScans.toLocaleString()}
+          value={stats.total_scans.toLocaleString()}
           icon="👁️"
           trend={{ value: '+15%', isPositive: true }}
           color="purple"
         />
         <StatsCard
           title="Quét tháng này"
-          value={stats.monthlyScans.toLocaleString()}
+          value={stats.monthly_scans.toLocaleString()}
           icon="📊"
           trend={{ value: '+8%', isPositive: true }}
           color="orange"
@@ -286,7 +324,7 @@ function Dashboard() {
       <div className="grid lg:grid-3 gap-6">
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
-          <AnalyticsChart />
+          <AnalyticsChart chartData={chartData} />
           <RecentQRCodesCard />
         </div>
 

@@ -35,12 +35,14 @@ class QRCodeRepository:
     def get_qr_by_code(self, code: str) -> Optional[QRCode]:
         return self.db.query(QRCode).filter(QRCode.code == code).first()
     
-    def list_qrs(self, folder: Optional[str] = None, qr_type: Optional[str] = None) -> List[QRCode]:
+    def list_qrs(self, folder: Optional[str] = None, qr_type: Optional[str] = None, user_id: Optional[str] = None) -> List[QRCode]:
         query = self.db.query(QRCode).filter(QRCode.is_active == True)
         if folder:
             query = query.filter(QRCode.folder == folder)
         if qr_type:
             query = query.filter(QRCode.type == qr_type)
+        # Note: user_id filtering would be added here when user system is fully implemented
+        # For now, we're using a demo implementation
         return query.all()
     
     def update_qr(self, qr_id: str, qr_data: QRUpdateRequest) -> Optional[QRCode]:

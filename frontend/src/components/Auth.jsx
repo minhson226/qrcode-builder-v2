@@ -128,8 +128,21 @@ function LoginForm({ onSuccess }) {
 function UserMenu({ user, onLogout }) {
   const [isOpen, setIsOpen] = useState(false)
 
+  const handleClickOutside = (event) => {
+    if (!event.target.closest('.user-menu')) {
+      setIsOpen(false)
+    }
+  }
+
+  React.useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [isOpen])
+
   return (
-    <div className="relative">
+    <div className="user-menu relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 text-white hover:bg-white hover:bg-opacity-20 rounded-lg px-3 py-2 transition-all"
@@ -138,33 +151,33 @@ function UserMenu({ user, onLogout }) {
           👤
         </div>
         <span className="hidden md:block">{user.name}</span>
-        <span className="text-sm">▼</span>
+        <span className="text-sm transform transition-transform" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg py-2 min-w-48 z-50">
-          <div className="px-4 py-2 border-b">
+        <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-xl py-2 min-w-48 z-[9999] border border-gray-200">
+          <div className="px-4 py-2 border-b border-gray-100">
             <p className="font-semibold text-gray-800">{user.name}</p>
             <p className="text-sm text-gray-600">{user.email}</p>
           </div>
           
-          <a href="#" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+          <a href="#" className="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors">
             👤 Hồ sơ cá nhân
           </a>
-          <a href="#" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+          <a href="#" className="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors">
             ⚙️ Cài đặt
           </a>
-          <a href="#" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+          <a href="#" className="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors">
             📊 Thống kê
           </a>
           
-          <div className="border-t mt-2">
+          <div className="border-t border-gray-100 mt-2">
             <button
               onClick={() => {
                 setIsOpen(false)
                 onLogout()
               }}
-              className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50"
+              className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 transition-colors"
             >
               🚪 Đăng xuất
             </button>

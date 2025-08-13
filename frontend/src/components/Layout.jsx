@@ -6,7 +6,7 @@ import NotificationCenter from './NotificationCenter.jsx'
 import { LoadingPage } from './Loading.jsx'
 
 function Layout({ children }) {
-  const { user, isAuthenticated, loading } = useApp()
+  const { user, isAuthenticated, loading, actions } = useApp()
   const location = useLocation()
   
   // Show loading page during app initialization
@@ -50,7 +50,10 @@ function Layout({ children }) {
               {isAuthenticated ? (
                 <UserMenu 
                   user={user} 
-                  onLogout={() => window.location.href = '/'}
+                  onLogout={() => {
+                    actions.logout()
+                    window.location.href = '/'
+                  }}
                 />
               ) : (
                 <Link to="/login" className="btn btn-outline text-white border-white hover:bg-white hover:text-primary">

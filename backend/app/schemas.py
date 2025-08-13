@@ -80,8 +80,10 @@ class JobStatus(BaseModel):
 class AnalyticsSummary(BaseModel):
     total_scans: int
     unique_scans: int
+    today_scans: int = 0
     by_day: List[Dict[str, Any]] = Field(default_factory=list)
     top_countries: List[Dict[str, Any]] = Field(default_factory=list)
+    recent_scans: List[Dict[str, Any]] = Field(default_factory=list)
 
 class ScanEvent(BaseModel):
     qr_id: str

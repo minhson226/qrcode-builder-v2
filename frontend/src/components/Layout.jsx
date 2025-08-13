@@ -50,7 +50,10 @@ function Layout({ children }) {
               {isAuthenticated ? (
                 <UserMenu 
                   user={user} 
-                  onLogout={() => window.location.href = '/'}
+                  onLogout={() => {
+                    actions.logout()
+                    window.location.href = '/'
+                  }}
                 />
               ) : (
                 <Link to="/login" className="btn btn-outline text-white border-white hover:bg-white hover:text-primary">

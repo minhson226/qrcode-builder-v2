@@ -6,7 +6,7 @@ import NotificationCenter from './NotificationCenter.jsx'
 import { LoadingPage } from './Loading.jsx'
 
 function Layout({ children }) {
-  const { user, isAuthenticated, loading } = useApp()
+  const { user, isAuthenticated, loading, actions } = useApp()
   const location = useLocation()
   
   // Show loading page during app initialization
